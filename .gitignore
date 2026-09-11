@@ -1,0 +1,47 @@
+# Local secrets; sanitized examples may be committed.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Python caches, environments and generated build output.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+
+# Go / frontend build output and dependencies.
+bin/
+build/
+dist/
+*.test
+coverage.out
+node_modules/
+.next/
+
+# Local runtime data, workspaces, logs and artifacts.
+/data/
+/workspaces/
+/artifacts/
+/logs/
+/traces/
+*.log
+
+# Editor / OS files.
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Keep dependency lockfiles, eval datasets and source fixtures trackable.
