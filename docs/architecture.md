@@ -6,7 +6,7 @@ RepoPilot 面向软件研发任务：用户绑定 Git Repository，通过自然�
 
 长期交付物是可提交的代码结果及其测试、Diff、执行记录、审批和评测证据。平台必须支持持久化、实时展示、取消、超时、追踪、评测和审计。
 
-**当前实际交付只有 Day 1 文档与最小目录骨架。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的服务、状态机、数据层和图表描述确认的长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
+**当前实际交付为治理基线、Phase 1.1 核心数据模型和 Phase 1.2 Tool Registry 契约。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，完整 Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的其余服务、状态机、数据层和图表描述确认的是长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
 
 设计输入是 [完整长期设计](../references/RepoPilot_full_design.md) 和 Day 1 Prompt。原设计中的原地 Hermes 改造、更宽泛 MVP、提前 Memory/Reviewer/Embedding、示例表结构、API 和阈值均不自动进入当前范围。实际开发规则见 [AGENTS.md](../AGENTS.md)。
 
@@ -30,7 +30,7 @@ Go = Control Plane；Python = Agent Runtime。Go 负责 Task Orchestration / Ser
 
 Go 的 Handler/API 负责传输，Application 协调用例，Domain 表达规则，Infrastructure 提供存储、MQ、工具执行等适配；小接口按真实需求引入。Python 用显式状态和结构化结果保持循环可理解，Provider、工具客户端、检索与评测不应把主循环包成不透明框架。
 
-### Phase 1.1 当前实现
+### Phase 1.1–1.2 当前实现
 
 当前 Python Runtime 已建立 Provider 无关的核心数据模型，位于 `services/agent_runtime/app/agent/models.py`：
 
@@ -40,7 +40,15 @@ Go 的 Handler/API 负责传输，Application 协调用例，Domain 表达规则
 - `AgentState` 保存当前消息、iteration 和 max_iterations，拒绝未知、重名、重复完成或工具名不匹配的结果，并公开尚未完成的调用。
 - `AgentResult` 只表达 succeeded、failed、exhausted 三种 Runtime 终态；它不是 Go 平台 Task 状态机。
 
-这些类型提供字典序列化，供后续 Provider Adapter、Agent Loop 和 Trace 转换使用。当前未定义网络协议、持久化 Schema、Tool Registry、Loop 或实际执行。task_id / run_id 等跨服务关联字段在相应阶段进入运行上下文，不提前塞入 Step 1.1 的最小模型。
+这些类型提供字典序列化，供后续 Provider Adapter、Agent Loop 和 Trace 转换使用。task_id / run_id 等跨服务关联字段在相应阶段进入运行上下文，不提前塞入 Step 1.1 的最小模型。
+
+Phase 1.2 在 `services/agent_runtime/app/tools/registry.py` 增加 Provider 无关的 Tool Registry 契约：
+
+- `Tool` 将 name、description、JSON-compatible 顶层 object `input_schema` 与类型化 handler 绑定；Schema 在构造和导出时均隔离外部修改。
+- `ToolRegistry` 按确定性注册顺序保存 Tool，提供精确名称查找和模型可见的 Schema 列表；重复注册不会覆盖原 Tool，未知工具通过显式异常报告。
+- 当前只校验 Schema 的传输边界，不实现完整 JSON Schema 语义校验；handler 尚不由 Registry 执行，执行错误到 `ToolResult` / Observation 的转换属于后续 Loop 和工具 Step。
+
+当前仍未定义网络协议、持久化 Schema、Agent Loop、真实工具或实际执行。Registry 的 Python handler 是 Phase 1–4 受控本地工具的内部契约；Phase 5 后执行职责按 ADR 007 迁移到 Go Tool Gateway。
 
 ## 3. High Level Architecture — 长期目标
 

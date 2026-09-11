@@ -26,7 +26,7 @@ Day 1 仅完成设计阅读、参考源码检查、候选映射和重设计约�
 | ID / Source | Target（未来） | What was reused / Potential reuse | What was redesigned / Why | Phase / Status |
 | --- | --- | --- | --- | --- |
 | H-01 `waku/loop/agent.py` | `services/agent_runtime/app/agent/loop.py` | Agent Loop、max_iterations、Tool Calling、Observer、Streaming ideas | 用显式 AgentState / AgentResult 和结构化 ToolResult；区分自然停止、成功、迭代耗尽和错误；逐步加取消、版本化事件。保留透明循环，移除个人助手/单一 Provider 数据结构耦合；Streaming 不提前带入 Phase 1 | max_iterations / 终态思想已在 Step 1.1 重设计采用；Loop 仍为 Phase 1.3 Candidate |
-| H-02 `waku/tools/registry.py` | `services/agent_runtime/app/tools/registry.py` | Tool Schema、Registry concept、未知工具/执行错误作为 Observation | 返回结构化结果，验证参数和重名注册语义；长期加入风险/超时/审批/幂等/Trace；Phase 5 执行迁到 Go。避免把“捕获异常返回字符串”当作安全执行 | Phase 1；Gateway Phase 5；Candidate |
+| H-02 `waku/tools/registry.py` | `services/agent_runtime/app/tools/registry.py` | Tool Schema、Registry concept、稳定注册顺序 | Step 1.2 已实现结构化结果方向的 handler 契约、Schema 传输边界及重复/未知工具显式错误；未复制“异常转字符串”和静默覆盖行为。风险/超时/审批/幂等/Trace 及 Phase 5 Go 执行仍为 Planned | Step 1.2 Pattern adopted；Gateway Phase 5 Planned |
 | H-03 `waku/memory/retrieval_gate.py` | `services/agent_runtime/app/memory/retrieval_gate.py`（future RepoPilot retrieval gate） | 先判定是否检索及检索 Query，减少无关上下文 | 改为研发 Code / Memory 决策，增加 Scope、预算、错误回退评测；原实现 fail-open 不能绕过授权边界 | Phase 7；Candidate |
 | H-04 `waku/memory/consolidation.py` | `services/agent_runtime/app/memory/consolidation.py`（future async memory consolidation） | 按积累量提炼 facts / episodes，失败保留输入待重试 | 从同步 SQLite chat log 改为 RabbitMQ 后台处理、PostgreSQL、来源与 Scope、去重和恢复；主任务不等待蒸馏 | Phase 7；Candidate |
 | H-05 `waku/memory/semantic/store.py`、`waku/memory/episodic/store.py`、`waku/memory/procedural/loader.py` | `services/agent_runtime/app/memory/`、`services/agent_runtime/app/skills/` | Semantic / Episodic / Procedural 分工、日期与相关性、按需加载 Skill | 研发事实与任务记录替代私人信息；USER / PROJECT / TASK 隔离；不继承 ASCII-only 提词作为中文方案，不把 Skill 当权限来源 | Phase 7；Candidate |
@@ -85,10 +85,26 @@ Calendar、Personal Notes、Personal Messages、Telegram、Voice、Personal Assi
 - **Design decisions**：符合 ADR 002 / 003；没有新增 ADR 或外部依赖。
 - **Tests**：`python -B -m unittest discover -s tests -v`，17 tests，PASS（在 `services/agent_runtime/` 执行）。
 - **Evidence**：核心实现、测试和 `docs/learning/phase-01/step-1.1-core-runtime-data-models.md`。
-- **Status**：Pattern adopted / Step 1.1 implemented；Hermes Loop 本身仍未迁移。
-- **Remaining limitations / Follow-up**：无 Registry、Loop、Provider、工具执行、网络协议或持久化；Current Step 等待用户验收。
+- **Status**：Pattern adopted / Step 1.1 completed；Hermes Loop 本身仍未迁移。
+- **Remaining limitations / Follow-up**：Step 1.2 已补充 Registry；仍无 Loop、Provider、工具执行、网络协议或持久化。
 
-## 6. 迁移状态与完成标准
+## 6. Actual Migration Record — M-002 / 2026-09-11
+
+- **Module**：Phase 1.2 Tool Registry Contract。
+- **Source**：Hermes `waku/tools/registry.py`，本地源文件 SHA-256 为 `1D060B0BCD710FBF04C97C1E41DE877734A43C77A677BA40FFB546BC3470C9AD`；长期设计第 13、62 节。
+- **Target**：`services/agent_runtime/app/tools/registry.py`、`app/tools/__init__.py` 和 `tests/test_tool_registry.py`。
+- **Current Phase / Authorized scope**：Phase 1 / Step 1.2，仅 Tool 定义、Registry 行为、契约边界和单元测试。
+- **What was reused**：Tool 将 name、description、input_schema 和 handler 聚合，Registry 按名称保存并向模型暴露 Schema 的通用设计思想。
+- **What was redesigned**：没有复制 Hermes 源码。重复名称从静默覆盖改为 `DuplicateToolError`；未知名称从错误字符串改为 `UnknownToolError`；input_schema 必须是可防御复制的 JSON-compatible 顶层 object；handler 的类型方向为 `ToolCall -> ToolResult`，而不是关键业务错误与正常字符串混合。
+- **Why**：Step 1.3 的 Loop 需要稳定、确定性的工具发现边界，同时未知/重复注册必须与真实工具失败区分，Schema 也不能被 Provider Adapter 或调用方意外修改。
+- **License considerations**：Hermes 根许可证为 MIT，且其 Registry 注释声明模式改编自 `launch-agentic-rag`；本 Step 只采用通用 Registry 思想，没有复制代码行或依赖，因此未引入第三方代码或 attribution 文件。若未来复制具体实现，必须继续追溯该上游来源。
+- **Design decisions**：符合 ADR 002 / 003 / 007；没有新增 ADR、外部依赖或执行基础设施。
+- **Tests**：`python -B -m unittest discover -s tests -v`，23 tests，PASS（在 `services/agent_runtime/` 执行），其中 6 个为 Step 1.2 Registry 测试。
+- **Evidence**：核心实现、边界测试和 `docs/learning/phase-01/step-1.2-tool-registry-contract.md`。
+- **Status**：Pattern adopted / Step 1.2 implemented；等待用户验收。
+- **Remaining limitations / Follow-up**：无完整 JSON Schema 参数语义校验、Registry 执行包装、Agent Loop、真实工具、Provider、风险/超时/审批策略或 Go Tool Gateway。
+
+## 7. 迁移状态与完成标准
 
 - **Candidate / Pattern only**：已识别思想，尚未复制或实现。
 - **Planned**：已明确进入 Current Phase 的下一项有限迁移，仍未完成。

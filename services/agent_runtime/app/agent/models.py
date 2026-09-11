@@ -25,7 +25,7 @@ class MessageRole(str, Enum):
 
 
 class AgentResultStatus(str, Enum):
-    """Terminal outcomes produced by a future agent loop."""
+    """Terminal ouxtcomes produced by a future agent loop."""
 
     SUCCEEDED = "succeeded"
     FAILED = "failed"

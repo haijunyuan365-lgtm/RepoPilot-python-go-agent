@@ -1,12 +1,12 @@
 Current Phase: Phase 1
-Current Step: Phase 1.1 — Core Runtime Data Models
+Current Step: Phase 1.2 — Tool Registry Contract
 Step Status: Awaiting Acceptance
 
 Only tasks belonging to Current Phase and Current Step should normally be implemented.
 
 # RepoPilot Development Roadmap
 
-本文件是后续 Vibe Coding 的功能范围控制器。当前状态：**Phase 0 的 Day 1 Bootstrap 已交付；Phase 1 正在开发；Step 1.1 已实现并完成本地验证，等待用户验收。完整 Python Coding Agent MVP 仍为 NOT IMPLEMENTED。**
+本文件是后续 Vibe Coding 的功能范围控制器。当前状态：**Phase 0 的 Day 1 Bootstrap 已交付；Phase 1 正在开发；Step 1.1 已验收，Step 1.2 已实现并完成本地验证，等待用户验收。完整 Python Coding Agent MVP 仍为 NOT IMPLEMENTED。**
 
 Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，不表示今天要开始写 Agent，也不表示 Phase 1 已通过验收。
 
@@ -32,7 +32,7 @@ Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，�
 
 ## Phase 1 — Python Coding Agent MVP
 
-- **Status**：Current / In Progress；仅 Step 1.1 已实现，完整 MVP 仍为 NOT IMPLEMENTED。
+- **Status**：Current / In Progress；Step 1.1 已完成，Step 1.2 已实现并等待验收，完整 MVP 仍为 NOT IMPLEMENTED。
 - **Goal**：在一个小型、受控 Bug Repository 中验证真实的查找、读取、修改、测试、失败后修复闭环。
 - **Scope**：Message Model、Tool Call Model、Tool Result Model；支撑循环的显式 AgentState / AgentResult；透明 Agent Loop、max_iterations、Tool Registry；仅 `list_files`、`read_file`、`search_code`、`apply_patch`、`run_test` 五个工具；simple local test repository 和 simple bug fixing loop。按闭环需要接入一个真实 LLM Provider，保持最小适配，不建设多厂商平台。
 - **Non Goals**：Go 服务、RabbitMQ、Redis、PostgreSQL、pgvector、gRPC、Docker、Multi Agent、delegate_task、复杂 Memory、Code RAG、独立 Planner/Reviewer 服务、SSE、完整 Eval 平台、通用 run_command、git 操作工具和高风险外部动作。
@@ -45,8 +45,8 @@ Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，�
 
 | Step | 交付内容 | 最小验收 | 状态 |
 | --- | --- | --- | --- |
-| **1.1 Core Runtime Data Models** | `Message`、`ToolCall`、`ToolResult`、`AgentState`、`AgentResult` 的最小字段、状态和关联语义 | 单元测试覆盖序列化/构造、tool_call 关联、成功/失败/迭代耗尽表达；无 Loop、无真实 Tool | **Current / Awaiting Acceptance** |
-| 1.2 Tool Registry Contract | 最小 Tool 定义、注册、查找、重复注册和未知 Tool 行为 | 单元测试覆盖正常注册、重复、未知 Tool、参数契约边界 | Planned |
+| 1.1 Core Runtime Data Models | `Message`、`ToolCall`、`ToolResult`、`AgentState`、`AgentResult` 的最小字段、状态和关联语义 | 单元测试覆盖序列化/构造、tool_call 关联、成功/失败/迭代耗尽表达；无 Loop、无真实 Tool | Completed |
+| **1.2 Tool Registry Contract** | 最小 Tool 定义、注册、查找、重复注册和未知 Tool 行为 | 单元测试覆盖正常注册、重复、未知 Tool、参数契约边界 | **Current / Awaiting Acceptance** |
 | 1.3 Minimal Agent Loop | 使用 fake ChatModel + fake Tool 验证一次或多次 Tool Call、Observation 回填、自然结束和 max_iterations | 单元测试真实跑 Loop；不接 Provider，不访问文件系统 | Planned |
 | 1.4 Safe Read Tools | 仓库根目录安全边界、`list_files`、`read_file` | 正常路径、目录穿越、绝对路径、符号链接/等价逃逸边界测试 | Planned |
 | 1.5 Search Code Tool | `search_code` 的最小精确文本检索和结构化结果 | 小型 fixture 仓库中验证命中、无命中、输出限制和路径信息 | Planned |
@@ -55,7 +55,7 @@ Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，�
 | 1.8 One Real LLM Provider | 只接一个真实 Provider 适配到已有核心模型和 Loop | Provider 契约测试 + 一次最小真实调用；Secret 不入日志 | Planned |
 | 1.9 Controlled Bug-Fix E2E | 小型 Bug Repository，完成 Search → Read → Modify → Test Fail → Observation → Retry → Test Pass | 保留输入、迭代记录、Tool Result、Diff、测试命令与退出码；满足 Phase 1 Acceptance Criteria | Planned |
 
-**当前 Step 锁仍为 Phase 1.1**。本 Step 已实现核心数据模型、关联校验、结果语义、字典序列化和 17 个标准库单元测试，并生成学习笔记；等待用户验收，不自动推进到 Phase 1.2。Tool Registry、Agent Loop、工具执行和 Provider 集成仍未实现。
+**当前 Step 锁为 Phase 1.2**。本 Step 已实现 Provider 无关的 Tool 契约、确定性注册/查找、重复与未知工具错误、JSON-compatible object Schema 边界和防御性复制；连同 Step 1.1 共 23 个标准库单元测试通过，并已生成学习笔记。等待用户验收，不自动推进到 Phase 1.3。Agent Loop、工具执行、Schema 语义校验、真实工具和 Provider 集成仍未实现。
 
 ## Phase 2 — Go Control Plane MVP
 
