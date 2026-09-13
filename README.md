@@ -4,7 +4,7 @@ RepoPilot is an AI software engineering agent platform.
 
 RepoPilot 面向软件研发场景，计划让用户绑定 Git Repository 后通过自然语言发起分析、修复、测试与 Review 任务，并交付带验证证据、可审批、可提交的研发结果。
 
-**当前已完成治理基线和 Phase 1.1–1.3，并实现 Phase 1.4 的安全只读工具等待验收；其余真实工具、LLM Provider 与平台服务仍未实现。**
+**当前已完成治理基线和 Phase 1.1–1.4，并实现 Phase 1.5 的精确文本检索工具等待验收；写入/测试工具、LLM Provider 与平台服务仍未实现。**
 
 ## Problem
 
@@ -22,7 +22,7 @@ RepoPilot 面向软件研发场景，计划让用户绑定 Git Repository 后通
 - **Python Agent Runtime**：唯一主要 Agent Loop、LLM 推理、规划、工具选择、RAG、Memory、Review 与 Eval。
 - **长期基础设施**：RabbitMQ 传递异步任务/事件；Tool Gateway 先 HTTP 后按需 gRPC；SSE 推送前端事件；PostgreSQL + pgvector 持久存储与检索；Redis 提供按需热状态；Docker Sandbox + Git Worktree 隔离执行；OpenTelemetry 追踪。
 
-以上长期架构整体尚未实现；当前只有 Phase 1 的模型、Tool Registry 契约、使用测试替身验证的最小 Agent Loop，以及面向受控本地仓库的 `list_files` / `read_file`。详见 [architecture](docs/architecture.md) 和 [八项 ADR](docs/decisions.md)。
+以上长期架构整体尚未实现；当前只有 Phase 1 的模型、Tool Registry 契约、使用测试替身验证的最小 Agent Loop，以及面向受控本地仓库的 `list_files` / `read_file` / `search_code`。详见 [architecture](docs/architecture.md) 和 [八项 ADR](docs/decisions.md)。
 
 ## Repository Structure
 
@@ -43,10 +43,12 @@ RepoPilot/
 │   ├── app/agent/loop.py
 │   ├── app/tools/registry.py
 │   ├── app/tools/safe_read.py
+│   ├── app/tools/search_code.py
 │   ├── tests/test_models.py
 │   ├── tests/test_tool_registry.py
 │   ├── tests/test_agent_loop.py
 │   ├── tests/test_safe_read_tools.py
+│   ├── tests/test_search_code_tool.py
 │   └── README.md
 ├── proto/.gitkeep
 ├── configs/.gitkeep
@@ -65,7 +67,7 @@ RepoPilot/
 | Phase | 目标 | 状态 |
 | --- | --- | --- |
 | 0 | Baseline / Day 1 Bootstrap | 文档与最小骨架已完成 |
-| 1 | Python Coding Agent MVP | In Progress；Steps 1.1–1.3 已完成，Step 1.4 已实现并等待验收，完整 MVP 仍为 NOT IMPLEMENTED |
+| 1 | Python Coding Agent MVP | In Progress；Steps 1.1–1.4 已完成，Step 1.5 已实现并等待验收，完整 MVP 仍为 NOT IMPLEMENTED |
 | 2 | Go Control Plane MVP | Planned |
 | 3 | RabbitMQ Task Queue | Planned |
 | 4 | Task Event + SSE | Planned |
@@ -81,10 +83,10 @@ Redis 和 gRPC 的实施需满足 roadmap 中的条件并明确加入范围，�
 ## Current Status
 
 - **Current Phase**：Phase 1 — Python Coding Agent MVP，正在开发。
-- **Current Step**：Phase 1.4 — Safe Read Tools，已实现并通过本地测试，等待用户验收；不会自动推进到 Step 1.5。
-- **Implemented**：项目治理基线；Provider 无关的 Message、ToolCall、ToolResult、AgentState、AgentResult；工具调用与结果关联校验；Tool 定义及 Registry；同步 ChatModel 契约；透明 Agent Loop；Tool Call 顺序执行、Observation 回填、自然成功、显式失败和迭代耗尽语义；固定仓库根目录的路径边界；真实 `list_files` / `read_file`；路径穿越、绝对路径、链接逃逸、`.git` / 常见凭据保护和有界输出；标准库单元测试。
-- **Planned / NOT IMPLEMENTED**：`search_code`、`apply_patch`、`run_test`、完整 JSON Schema 参数语义校验、async/streaming、超时/取消、真实 LLM Provider、完整 Python MVP，以及 Go Control Plane、RabbitMQ、Redis、PostgreSQL、pgvector、Tool Gateway、SSE、Sandbox、Code RAG、Memory、Approval、系统化 Eval 和 OpenTelemetry。
-- **Validation**：在 Python 3.10.9 使用 `python -B -m unittest discover -s tests -v` 运行 40 个模型、Registry、Loop 与 Safe Read Tools 测试并通过；链接逃逸测试使用真实 symlink，Windows 无创建权限时使用 Junction 等价夹具。当前 Loop 仍只通过 fake ChatModel 验证，没有真实 Provider、写工具、测试工具或服务启动入口。
+- **Current Step**：Phase 1.5 — Search Code Tool，已实现并通过本地测试，等待用户验收；不会自动推进到 Step 1.6。
+- **Implemented**：项目治理基线；Provider 无关的 Message、ToolCall、ToolResult、AgentState、AgentResult；工具调用与结果关联校验；Tool 定义及 Registry；同步 ChatModel 契约；透明 Agent Loop；Tool Call 顺序执行、Observation 回填、自然成功、显式失败和迭代耗尽语义；固定仓库根目录的路径边界；真实 `list_files` / `read_file` / `search_code`；安全路径、链接和常见凭据保护；确定性 JSON 搜索结果；文件、扫描、命中和输出上限；标准库单元测试。
+- **Planned / NOT IMPLEMENTED**：`apply_patch`、`run_test`、完整 JSON Schema 参数语义校验、async/streaming、超时/取消、真实 LLM Provider、完整 Python MVP，以及 Go Control Plane、RabbitMQ、Redis、PostgreSQL、pgvector、Tool Gateway、SSE、Sandbox、Code RAG、Memory、Approval、系统化 Eval 和 OpenTelemetry。
+- **Validation**：在 Python 3.10.9 使用 `python -B -m unittest discover -s tests -v` 运行 50 个模型、Registry、Loop、Safe Read 与 Search Code 测试并通过；Search Code 专项 10 个测试覆盖真实命中、无命中、结构化位置、范围限制、路径与链接安全、非文本文件及截断。链接逃逸测试使用真实 symlink，Windows 无创建权限时使用 Junction 等价夹具。当前 Loop 仍只通过 fake ChatModel 验证，没有真实 Provider、写工具、测试工具或服务启动入口。
 - **Git**：项目已初始化独立 Git 历史，`main` 跟踪 `origin/main`；本节不代表当前工作区改动已提交或推送。
 
 ## Reference Projects
@@ -99,4 +101,4 @@ Hermes 提供 Loop、Registry、Memory、Workspace、Eval、Tracing 等思想，
 
 坚持 Go / Python 职责边界，Python 拥有主要 Runtime；禁止为未来需求堆基础设施、复制完整参考项目或用假数据声称完成。Sandbox 完成前仅在专门准备的受控测试 Repository 执行白名单测试命令；审批就绪前 HIGH 风险工具禁用。
 
-当前 Step 1.4 等待用户验收。验收确认后，下一推荐 Step 是 Phase 1.5 Search Code Tool；本次未实现该 Step。
+当前 Step 1.5 等待用户验收。验收确认后，下一推荐 Step 是 Phase 1.6 Apply Patch Tool；本次未实现该 Step。

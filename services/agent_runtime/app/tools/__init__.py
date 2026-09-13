@@ -8,6 +8,7 @@ from .registry import (
     ToolRegistryError,
     UnknownToolError,
 )
+from .search_code import SearchCodeTool, build_search_code_tool
 from .safe_read import (
     RepositoryAccessError,
     RepositoryBoundary,
@@ -20,10 +21,12 @@ __all__ = [
     "RepositoryAccessError",
     "RepositoryBoundary",
     "SafeReadTools",
+    "SearchCodeTool",
     "Tool",
     "ToolHandler",
     "ToolRegistry",
     "ToolRegistryError",
     "UnknownToolError",
+    "build_search_code_tool",
     "build_safe_read_tools",
 ]

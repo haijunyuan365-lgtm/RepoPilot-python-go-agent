@@ -1,12 +1,12 @@
 Current Phase: Phase 1
-Current Step: Phase 1.4 — Safe Read Tools
+Current Step: Phase 1.5 — Search Code Tool
 Step Status: Awaiting Acceptance
 
 Only tasks belonging to Current Phase and Current Step should normally be implemented.
 
 # RepoPilot Development Roadmap
 
-本文件是后续 Vibe Coding 的功能范围控制器。当前状态：**Phase 0 的 Day 1 Bootstrap 已交付；Phase 1 正在开发；Steps 1.1–1.3 已完成，Step 1.4 已实现并完成本地验证，等待用户验收。完整 Python Coding Agent MVP 仍为 NOT IMPLEMENTED。**
+本文件是后续 Vibe Coding 的功能范围控制器。当前状态：**Phase 0 的 Day 1 Bootstrap 已交付；Phase 1 正在开发；Steps 1.1–1.4 已完成，Step 1.5 已实现并完成本地验证，等待用户验收。完整 Python Coding Agent MVP 仍为 NOT IMPLEMENTED。**
 
 Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，不表示今天要开始写 Agent，也不表示 Phase 1 已通过验收。
 
@@ -32,7 +32,7 @@ Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，�
 
 ## Phase 1 — Python Coding Agent MVP
 
-- **Status**：Current / In Progress；Steps 1.1–1.3 已完成，Step 1.4 已实现并等待验收，完整 MVP 仍为 NOT IMPLEMENTED。
+- **Status**：Current / In Progress；Steps 1.1–1.4 已完成，Step 1.5 已实现并等待验收，完整 MVP 仍为 NOT IMPLEMENTED。
 - **Goal**：在一个小型、受控 Bug Repository 中验证真实的查找、读取、修改、测试、失败后修复闭环。
 - **Scope**：Message Model、Tool Call Model、Tool Result Model；支撑循环的显式 AgentState / AgentResult；透明 Agent Loop、max_iterations、Tool Registry；仅 `list_files`、`read_file`、`search_code`、`apply_patch`、`run_test` 五个工具；simple local test repository 和 simple bug fixing loop。按闭环需要接入一个真实 LLM Provider，保持最小适配，不建设多厂商平台。
 - **Non Goals**：Go 服务、RabbitMQ、Redis、PostgreSQL、pgvector、gRPC、Docker、Multi Agent、delegate_task、复杂 Memory、Code RAG、独立 Planner/Reviewer 服务、SSE、完整 Eval 平台、通用 run_command、git 操作工具和高风险外部动作。
@@ -48,14 +48,14 @@ Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，�
 | 1.1 Core Runtime Data Models | `Message`、`ToolCall`、`ToolResult`、`AgentState`、`AgentResult` 的最小字段、状态和关联语义 | 单元测试覆盖序列化/构造、tool_call 关联、成功/失败/迭代耗尽表达；无 Loop、无真实 Tool | Completed |
 | 1.2 Tool Registry Contract | 最小 Tool 定义、注册、查找、重复注册和未知 Tool 行为 | 单元测试覆盖正常注册、重复、未知 Tool、参数契约边界 | Completed |
 | 1.3 Minimal Agent Loop | 使用 fake ChatModel + fake Tool 验证一次或多次 Tool Call、Observation 回填、自然结束和 max_iterations | 单元测试真实跑 Loop；不接 Provider，不访问文件系统 | Completed |
-| **1.4 Safe Read Tools** | 仓库根目录安全边界、`list_files`、`read_file` | 正常路径、目录穿越、绝对路径、符号链接/等价逃逸边界测试 | **Current / Awaiting Acceptance** |
-| 1.5 Search Code Tool | `search_code` 的最小精确文本检索和结构化结果 | 小型 fixture 仓库中验证命中、无命中、输出限制和路径信息 | Planned |
+| 1.4 Safe Read Tools | 仓库根目录安全边界、`list_files`、`read_file` | 正常路径、目录穿越、绝对路径、符号链接/等价逃逸边界测试 | Completed |
+| **1.5 Search Code Tool** | `search_code` 的最小精确文本检索和结构化结果 | 小型 fixture 仓库中验证命中、无命中、输出限制和路径信息 | **Current / Awaiting Acceptance** |
 | 1.6 Apply Patch Tool | `apply_patch` 只修改受控 Repository，返回真实 Diff/错误 | 正常修改、冲突/无效 Patch、越界拒绝测试 | Planned |
 | 1.7 Run Test Tool | 白名单测试命令、timeout、stdout/stderr、exit code | PASS、FAIL、timeout、非法命令均有真实测试 | Planned |
 | 1.8 One Real LLM Provider | 只接一个真实 Provider 适配到已有核心模型和 Loop | Provider 契约测试 + 一次最小真实调用；Secret 不入日志 | Planned |
 | 1.9 Controlled Bug-Fix E2E | 小型 Bug Repository，完成 Search → Read → Modify → Test Fail → Observation → Retry → Test Pass | 保留输入、迭代记录、Tool Result、Diff、测试命令与退出码；满足 Phase 1 Acceptance Criteria | Planned |
 
-**当前 Step 锁为 Phase 1.4**。本 Step 在 `services/agent_runtime/app/tools/safe_read.py` 中实现固定仓库根目录的 `RepositoryBoundary`、递归 `list_files` 与 UTF-8 `read_file`：只接受仓库相对路径，拒绝绝对路径和 `..`，跟随 symlink / Windows Junction 后再次校验真实路径，保护 `.git` 和常见凭据文件，并限制扫描、列表和文件输出。所有正常与失败路径都返回关联原调用的结构化 `ToolResult`。新增 9 个真实临时文件系统测试，连同 Steps 1.1–1.3 共 40 个标准库单元测试通过。等待用户验收，不自动推进到 Phase 1.5。`search_code`、写入/测试工具、完整 Schema 语义校验、async/streaming、超时/取消和 Provider 集成仍未实现。
+**当前 Step 锁为 Phase 1.5**。本 Step 在 `services/agent_runtime/app/tools/search_code.py` 中实现固定仓库根目录的 `search_code`：接收必填单行 `query` 和可选相对 `path`，对 UTF-8 文本执行大小写敏感的字面量逐行检索，以确定性 JSON 数组返回 `path`、`line`、`column`、`text`。实现复用 Step 1.4 的真实路径边界，拒绝绝对路径、`..`、受保护文件和显式链接逃逸，根目录扫描跳过越界链接；文件数、目录项数、单文件字符数、命中数和 JSON 输出均有上限，截断通过 `ToolResult.truncated` 显式反馈。新增 10 个真实临时文件系统测试，连同 Steps 1.1–1.4 共 50 个标准库单元测试通过。等待用户验收，不自动推进到 Phase 1.6。写入/测试工具、完整 Schema 语义校验、async/streaming、超时/取消和 Provider 集成仍未实现。
 
 ## Phase 2 — Go Control Plane MVP
 

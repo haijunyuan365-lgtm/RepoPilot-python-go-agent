@@ -6,7 +6,7 @@ RepoPilot 面向软件研发任务：用户绑定 Git Repository，通过自然�
 
 长期交付物是可提交的代码结果及其测试、Diff、执行记录、审批和评测证据。平台必须支持持久化、实时展示、取消、超时、追踪、评测和审计。
 
-**当前实际交付为治理基线，以及 Phase 1.1–1.4 的核心数据模型、Tool Registry、最小 Agent Loop 和安全只读工具。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，完整 Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的其余服务、状态机、数据层和图表描述确认的是长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
+**当前实际交付为治理基线，以及 Phase 1.1–1.5 的核心数据模型、Tool Registry、最小 Agent Loop、安全读取和精确文本检索工具。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，完整 Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的其余服务、状态机、数据层和图表描述确认的是长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
 
 设计输入是 [完整长期设计](../references/RepoPilot_full_design.md) 和 Day 1 Prompt。原设计中的原地 Hermes 改造、更宽泛 MVP、提前 Memory/Reviewer/Embedding、示例表结构、API 和阈值均不自动进入当前范围。实际开发规则见 [AGENTS.md](../AGENTS.md)。
 
@@ -30,7 +30,7 @@ Go = Control Plane；Python = Agent Runtime。Go 负责 Task Orchestration / Ser
 
 Go 的 Handler/API 负责传输，Application 协调用例，Domain 表达规则，Infrastructure 提供存储、MQ、工具执行等适配；小接口按真实需求引入。Python 用显式状态和结构化结果保持循环可理解，Provider、工具客户端、检索与评测不应把主循环包成不透明框架。
 
-### Phase 1.1–1.4 当前实现
+### Phase 1.1–1.5 当前实现
 
 当前 Python Runtime 已建立 Provider 无关的核心数据模型，位于 `services/agent_runtime/app/agent/models.py`：
 
@@ -63,7 +63,14 @@ Phase 1.4 在 `services/agent_runtime/app/tools/safe_read.py` 增加受控仓库
 - `read_file` 只读取普通 UTF-8 文本文件，拒绝非法 UTF-8 和 NUL 字节，保留原始换行，并通过“上限 + 1 字符”读取设置 `ToolResult.truncated`。
 - 两个 handler 对参数、路径类型和文件系统错误返回与原 `tool_call_id` 关联的失败 `ToolResult`，不泄露仓库根目录，也不把失败伪装为成功。
 
-当前仍未定义网络协议、持久化 Schema、`search_code` / 写入 / 测试工具、真实 LLM Provider 或生产安全执行环境。Registry 的 Python handler 是 Phase 1–4 受控本地工具的内部契约；Phase 5 后执行职责按 ADR 007 迁移到 Go Tool Gateway。
+Phase 1.5 在 `services/agent_runtime/app/tools/search_code.py` 增加受控仓库精确文本检索：
+
+- `search_code` 接收必填的单行 `query` 和默认 `.` 的可选 `path`，只做大小写敏感的字面量子串匹配；不把正则、模糊检索或 Phase 6 Code RAG 提前带入当前 Step。
+- 目标可以是一个文件或目录。目录遍历复用 `RepositoryBoundary` 的规范化真实路径与凭据保护规则，跳过越界链接并通过真实目录集合避免链接环；显式越界、受保护或非文本文件返回失败。
+- 输出是确定性 JSON 数组，每个命中行包含 POSIX 风格仓库相对 `path`、从 1 开始的 `line` / `column` 和该行 `text`；无命中是成功的空数组，而不是错误。
+- 候选文件、遍历目录项、单文件字符、命中数和最终 JSON 字符均有独立上限；任何安全截断都通过关联原调用的 `ToolResult.truncated` 表达，输出始终保持为完整可解析的 JSON。
+
+当前仍未定义网络协议、持久化 Schema、写入 / 测试工具、真实 LLM Provider 或生产安全执行环境。Registry 的 Python handler 是 Phase 1–4 受控本地工具的内部契约；Phase 5 后执行职责按 ADR 007 迁移到 Go Tool Gateway。
 
 ## 3. High Level Architecture — 长期目标
 
