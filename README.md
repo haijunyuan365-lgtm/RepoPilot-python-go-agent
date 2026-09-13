@@ -4,7 +4,7 @@ RepoPilot is an AI software engineering agent platform.
 
 RepoPilot 面向软件研发场景，计划让用户绑定 Git Repository 后通过自然语言发起分析、修复、测试与 Review 任务，并交付带验证证据、可审批、可提交的研发结果。
 
-**当前已完成治理基线和 Phase 1.1–1.6，并实现 Phase 1.7 的白名单测试执行工具等待验收；真实 LLM Provider、受控 Bug-Fix E2E 与平台服务仍未实现。**
+**当前已完成治理基线和 Phase 1.1–1.7，并实现 Phase 1.8 OpenAI Provider 适配器；Provider 契约测试已通过，但最小真实 API 调用因当前环境没有 `OPENAI_API_KEY` 仍待验证。受控 Bug-Fix E2E 与平台服务仍未实现。**
 
 ## Problem
 
@@ -22,7 +22,7 @@ RepoPilot 面向软件研发场景，计划让用户绑定 Git Repository 后通
 - **Python Agent Runtime**：唯一主要 Agent Loop、LLM 推理、规划、工具选择、RAG、Memory、Review 与 Eval。
 - **长期基础设施**：RabbitMQ 传递异步任务/事件；Tool Gateway 先 HTTP 后按需 gRPC；SSE 推送前端事件；PostgreSQL + pgvector 持久存储与检索；Redis 提供按需热状态；Docker Sandbox + Git Worktree 隔离执行；OpenTelemetry 追踪。
 
-以上长期架构整体尚未实现；当前只有 Phase 1 的模型、Tool Registry 契约、使用测试替身验证的最小 Agent Loop，以及面向受控本地仓库的 `list_files` / `read_file` / `search_code` / `apply_patch` / `run_test`。详见 [architecture](docs/architecture.md) 和 [八项 ADR](docs/decisions.md)。
+以上长期架构整体尚未实现；当前只有 Phase 1 的模型、Tool Registry 契约、透明 Agent Loop、OpenAI Chat Completions 适配器，以及面向受控本地仓库的 `list_files` / `read_file` / `search_code` / `apply_patch` / `run_test`。详见 [architecture](docs/architecture.md) 和 [八项 ADR](docs/decisions.md)。
 
 ## Repository Structure
 
@@ -71,7 +71,7 @@ RepoPilot/
 | Phase | 目标 | 状态 |
 | --- | --- | --- |
 | 0 | Baseline / Day 1 Bootstrap | 文档与最小骨架已完成 |
-| 1 | Python Coding Agent MVP | In Progress；Steps 1.1–1.6 已完成，Step 1.7 已实现并等待验收，完整 MVP 仍为 NOT IMPLEMENTED |
+| 1 | Python Coding Agent MVP | In Progress；Steps 1.1–1.7 已完成，Step 1.8 已实现并等待真实 API 调用验证，完整 MVP 仍为 NOT IMPLEMENTED |
 | 2 | Go Control Plane MVP | Planned |
 | 3 | RabbitMQ Task Queue | Planned |
 | 4 | Task Event + SSE | Planned |
@@ -87,10 +87,10 @@ Redis 和 gRPC 的实施需满足 roadmap 中的条件并明确加入范围，�
 ## Current Status
 
 - **Current Phase**：Phase 1 — Python Coding Agent MVP，正在开发。
-- **Current Step**：Phase 1.7 — Run Test Tool，已实现并通过本地测试，等待用户验收；不会自动推进到 Step 1.8。
-- **Implemented**：项目治理基线；Provider 无关的 Message、ToolCall、ToolResult、AgentState、AgentResult；工具调用与结果关联校验；Tool 定义及 Registry；同步 ChatModel 契约；透明 Agent Loop；Tool Call 顺序执行、Observation 回填、自然成功、显式失败和迭代耗尽语义；固定仓库根目录的路径边界；真实 `list_files` / `read_file` / `search_code` / `apply_patch` / `run_test`；安全路径、链接和常见凭据保护；确定性 JSON 搜索结果；严格单文件 unified diff 解析、冲突检测、原子写入及真实 Diff Observation；预配置测试 ID、固定 argv、`shell=False`、最小环境、timeout、stdout / stderr / exit code 和结构化有界测试 Observation；标准库单元测试。
-- **Planned / NOT IMPLEMENTED**：多文件事务、文件新增/删除/重命名、完整 JSON Schema 参数语义校验、async/streaming、Loop / Task 级可靠取消、Sandbox 级进程/CPU/Memory/Network/文件系统隔离、真实 LLM Provider、受控 Bug-Fix E2E、完整 Python MVP，以及 Go Control Plane、RabbitMQ、Redis、PostgreSQL、pgvector、Tool Gateway、SSE、Sandbox、Code RAG、Memory、Approval、系统化 Eval 和 OpenTelemetry。
-- **Validation**：在 Python 3.10.9 使用 `python -B -m unittest discover -s tests -v` 运行 70 个模型、Registry、Loop、Safe Read、Search Code、Apply Patch 与 Run Test 测试并通过；Run Test 专项 10 个真实子进程测试覆盖 PASS、非零 exit code、stdout / stderr、timeout、非法测试 ID / 参数零执行、shell 字符不可注入、双流大输出有界排空、非法 UTF-8 替换、多个白名单项选择和构造边界。当前 Loop 仍只通过 fake ChatModel 验证，没有真实 Provider、Bug-Fix E2E 或服务启动入口。
+- **Current Step**：Phase 1.8 — One Real LLM Provider，代码和契约测试已完成；因当前环境没有 `OPENAI_API_KEY`，最小真实调用仍待验证，不会自动推进到 Step 1.9。
+- **Implemented**：项目治理基线；Provider 无关的 Message、ToolCall、ToolResult、AgentState、AgentResult；工具调用与结果关联校验；Tool 定义及 Registry；同步 ChatModel 契约；透明 Agent Loop；Tool Call 顺序执行、Observation 回填、自然成功、显式失败和迭代耗尽语义；固定仓库根目录的路径边界；真实 `list_files` / `read_file` / `search_code` / `apply_patch` / `run_test`；安全路径、链接和常见凭据保护；确定性 JSON 搜索结果；严格单文件 unified diff 解析、冲突检测、原子写入及真实 Diff Observation；预配置测试 ID、固定 argv、`shell=False`、最小环境、timeout、stdout / stderr / exit code 和结构化有界测试 Observation；OpenAI Chat Completions 消息/工具双向适配、有界响应、协议错误处理与 API Key 脱敏；标准库单元测试。
+- **Planned / NOT IMPLEMENTED**：多文件事务、文件新增/删除/重命名、完整 JSON Schema 参数语义校验、Provider retry、Responses API、多 Provider、async/streaming、Loop / Task 级可靠取消、Sandbox 级进程/CPU/Memory/Network/文件系统隔离、受控 Bug-Fix E2E、完整 Python MVP，以及 Go Control Plane、RabbitMQ、Redis、PostgreSQL、pgvector、Tool Gateway、SSE、Sandbox、Code RAG、Memory、Approval、系统化 Eval 和 OpenTelemetry。
+- **Validation**：在 Python 3.10.9 使用 `python -B -m unittest discover -s tests -v` 运行 80 个模型、Registry、Loop、Safe Read、Search Code、Apply Patch、Run Test 与 OpenAI Provider 测试并通过；Provider 专项 10 个测试覆盖配置、密钥来源与脱敏、完整 transcript / Tool Schema 请求转换、多个 function call 解析、两轮 AgentLoop Observation 回填、输入拒绝、响应大小/JSON/消息协议错误以及 HTTP/网络失败。当前 Loop 已通过真实 Provider 适配器配合可控 HTTP 边界响应验证，但尚无 OpenAI 服务 live call、Bug-Fix E2E 或常驻服务入口。
 - **Git**：项目已初始化独立 Git 历史，`main` 跟踪 `origin/main`；本节不代表当前工作区改动已提交或推送。
 
 ## Reference Projects
@@ -105,4 +105,4 @@ Hermes 提供 Loop、Registry、Memory、Workspace、Eval、Tracing 等思想，
 
 坚持 Go / Python 职责边界，Python 拥有主要 Runtime；禁止为未来需求堆基础设施、复制完整参考项目或用假数据声称完成。Sandbox 完成前仅在专门准备的受控测试 Repository 执行白名单测试命令；审批就绪前 HIGH 风险工具禁用。
 
-当前 Step 1.7 等待用户验收。验收确认后，下一推荐 Step 是 Phase 1.8 One Real LLM Provider；本次未实现该 Step。
+当前 Step 1.8 的代码、契约测试和实调入口已完成，但真实 API 调用仍等待可用的 `OPENAI_API_KEY` 与模型 ID。该验证通过后，下一推荐 Step 是 Phase 1.9 Controlled Bug-Fix E2E；本次未实现该 Step。

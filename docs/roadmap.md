@@ -1,12 +1,12 @@
 Current Phase: Phase 1
-Current Step: Phase 1.7 — Run Test Tool
-Step Status: Awaiting Acceptance
+Current Step: Phase 1.8 — One Real LLM Provider
+Step Status: Implemented / Awaiting Live Validation
 
 Only tasks belonging to Current Phase and Current Step should normally be implemented.
 
 # RepoPilot Development Roadmap
 
-本文件是后续 Vibe Coding 的功能范围控制器。当前状态：**Phase 0 的 Day 1 Bootstrap 已交付；Phase 1 正在开发；Steps 1.1–1.6 已完成，Step 1.7 已实现并完成本地验证，等待用户验收。完整 Python Coding Agent MVP 仍为 NOT IMPLEMENTED。**
+本文件是后续 Vibe Coding 的功能范围控制器。当前状态：**Phase 0 的 Day 1 Bootstrap 已交付；Phase 1 正在开发；Steps 1.1–1.7 已完成，Step 1.8 已实现并通过 Provider 契约测试，但因当前环境未配置 `OPENAI_API_KEY`，最小真实调用仍待验证。完整 Python Coding Agent MVP 仍为 NOT IMPLEMENTED。**
 
 Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，不表示今天要开始写 Agent，也不表示 Phase 1 已通过验收。
 
@@ -32,7 +32,7 @@ Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，�
 
 ## Phase 1 — Python Coding Agent MVP
 
-- **Status**：Current / In Progress；Steps 1.1–1.6 已完成，Step 1.7 已实现并等待验收，完整 MVP 仍为 NOT IMPLEMENTED。
+- **Status**：Current / In Progress；Steps 1.1–1.7 已完成，Step 1.8 已实现并等待最小真实调用验证，完整 MVP 仍为 NOT IMPLEMENTED。
 - **Goal**：在一个小型、受控 Bug Repository 中验证真实的查找、读取、修改、测试、失败后修复闭环。
 - **Scope**：Message Model、Tool Call Model、Tool Result Model；支撑循环的显式 AgentState / AgentResult；透明 Agent Loop、max_iterations、Tool Registry；仅 `list_files`、`read_file`、`search_code`、`apply_patch`、`run_test` 五个工具；simple local test repository 和 simple bug fixing loop。按闭环需要接入一个真实 LLM Provider，保持最小适配，不建设多厂商平台。
 - **Non Goals**：Go 服务、RabbitMQ、Redis、PostgreSQL、pgvector、gRPC、Docker、Multi Agent、delegate_task、复杂 Memory、Code RAG、独立 Planner/Reviewer 服务、SSE、完整 Eval 平台、通用 run_command、git 操作工具和高风险外部动作。
@@ -51,11 +51,11 @@ Day 1 的授权仅包含文档与最小骨架。Current Phase 指向 Phase 1，�
 | 1.4 Safe Read Tools | 仓库根目录安全边界、`list_files`、`read_file` | 正常路径、目录穿越、绝对路径、符号链接/等价逃逸边界测试 | Completed |
 | 1.5 Search Code Tool | `search_code` 的最小精确文本检索和结构化结果 | 小型 fixture 仓库中验证命中、无命中、输出限制和路径信息 | Completed |
 | 1.6 Apply Patch Tool | `apply_patch` 只修改受控 Repository，返回真实 Diff/错误 | 正常修改、冲突/无效 Patch、越界拒绝测试 | Completed |
-| **1.7 Run Test Tool** | 白名单测试命令、timeout、stdout/stderr、exit code | PASS、FAIL、timeout、非法命令均有真实测试 | **Current / Awaiting Acceptance** |
-| 1.8 One Real LLM Provider | 只接一个真实 Provider 适配到已有核心模型和 Loop | Provider 契约测试 + 一次最小真实调用；Secret 不入日志 | Planned |
+| 1.7 Run Test Tool | 白名单测试命令、timeout、stdout/stderr、exit code | PASS、FAIL、timeout、非法命令均有真实测试 | Completed |
+| **1.8 One Real LLM Provider** | 只接一个真实 Provider 适配到已有核心模型和 Loop | Provider 契约测试 + 一次最小真实调用；Secret 不入日志 | **Current / Implemented / Awaiting Live Validation** |
 | 1.9 Controlled Bug-Fix E2E | 小型 Bug Repository，完成 Search → Read → Modify → Test Fail → Observation → Retry → Test Pass | 保留输入、迭代记录、Tool Result、Diff、测试命令与退出码；满足 Phase 1 Acceptance Criteria | Planned |
 
-**当前 Step 锁为 Phase 1.7**。本 Step 在 `services/agent_runtime/app/tools/run_test.py` 中实现固定仓库根目录的 `run_test`：模型只能选择构造时预配置的 `test_name`，工具把它映射到完全固定的 argv，初始化时解析并冻结可执行文件，运行时使用 `shell=False`、固定 Repository cwd 和最小环境变量执行真实子进程。stdout / stderr 由独立 reader 持续排空但只保留有界前缀，结果始终以可解析 JSON 保存命令、exit code、timeout 和双流截断状态；非零退出与 timeout 是关联原 ToolCall 的失败 Observation。POSIX timeout 终止新进程组，Windows 使用固定系统 `taskkill /T` best-effort 清理进程树并以直接终止兜底。新增 10 个真实临时 Repository / 子进程测试，连同 Steps 1.1–1.6 共 70 个标准库单元测试通过。等待用户验收，不自动推进到 Phase 1.8。Sandbox 级进程/资源/网络/文件系统隔离、真实 LLM Provider、受控 Bug-Fix E2E、完整 Schema 语义校验和 async/streaming 仍未实现。
+**当前 Step 锁为 Phase 1.8**。本 Step 在 `services/agent_runtime/app/providers/openai_chat.py` 中实现同步 `OpenAIChatModel`，作为现有 `ChatModel` Protocol 的唯一真实 Provider 适配器。它使用标准库向固定的 OpenAI Chat Completions HTTPS 地址发送请求，不引入 SDK 或 Provider 框架；`OPENAI_API_KEY` 仅从构造参数或环境读取，不进入 `repr`，HTTP / 网络错误也会脱敏。适配器将内部 system / user / assistant / tool 消息和 Registry Schema 转为 OpenAI 格式，把完整 `ToolResult` JSON 作为 Observation 回传，并将返回的 function tool calls 解析、校验为内部 `ToolCall`。响应体有 2 MB 默认上限，非 JSON、空 choices、错误 role、非法工具参数和网络失败都显式报错。新增 10 个 Provider 契约测试，连同 Steps 1.1–1.7 共 80 个标准库单元测试通过；`services/agent_runtime/live_openai_provider.py` 提供最小实调入口。当前环境没有 `OPENAI_API_KEY`，因此实调命令仅验证到安全失败（exit 1），本 Step 保持 Awaiting Live Validation，不自动推进 Phase 1.9。受控 Bug-Fix E2E、Provider retry / async / streaming、Responses API、多 Provider 和完整 Schema 语义校验仍未实现。
 
 ## Phase 2 — Go Control Plane MVP
 
