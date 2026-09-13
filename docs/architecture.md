@@ -6,7 +6,7 @@ RepoPilot 面向软件研发任务：用户绑定 Git Repository，通过自然�
 
 长期交付物是可提交的代码结果及其测试、Diff、执行记录、审批和评测证据。平台必须支持持久化、实时展示、取消、超时、追踪、评测和审计。
 
-**当前实际交付为治理基线，以及 Phase 1.1–1.6 的核心数据模型、Tool Registry、最小 Agent Loop、安全读取、精确文本检索和受控单文件补丁工具。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，完整 Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的其余服务、状态机、数据层和图表描述确认的是长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
+**当前实际交付为治理基线，以及 Phase 1.1–1.7 的核心数据模型、Tool Registry、最小 Agent Loop、安全读取、精确文本检索、受控单文件补丁和白名单测试执行工具。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，完整 Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的其余服务、状态机、数据层和图表描述确认的是长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
 
 设计输入是 [完整长期设计](../references/RepoPilot_full_design.md) 和 Day 1 Prompt。原设计中的原地 Hermes 改造、更宽泛 MVP、提前 Memory/Reviewer/Embedding、示例表结构、API 和阈值均不自动进入当前范围。实际开发规则见 [AGENTS.md](../AGENTS.md)。
 
@@ -30,7 +30,7 @@ Go = Control Plane；Python = Agent Runtime。Go 负责 Task Orchestration / Ser
 
 Go 的 Handler/API 负责传输，Application 协调用例，Domain 表达规则，Infrastructure 提供存储、MQ、工具执行等适配；小接口按真实需求引入。Python 用显式状态和结构化结果保持循环可理解，Provider、工具客户端、检索与评测不应把主循环包成不透明框架。
 
-### Phase 1.1–1.6 当前实现
+### Phase 1.1–1.7 当前实现
 
 当前 Python Runtime 已建立 Provider 无关的核心数据模型，位于 `services/agent_runtime/app/agent/models.py`：
 
@@ -78,7 +78,14 @@ Phase 1.6 在 `services/agent_runtime/app/tools/apply_patch.py` 增加受控仓�
 - 写入使用目标目录内的临时 UTF-8 文件，刷新后保留原权限位并以 `os.replace` 原子替换；成功 Observation 是根据写入前后真实内容重新生成的 unified diff，而不是直接回显模型输入。
 - Patch、目标文件和 Diff 输出均有字符上限；过大的输入或文件拒绝写入，成功但输出超过上限时返回前缀并设置 `ToolResult.truncated=True`。CRLF 文件沿用原换行风格，无末尾换行语义被保留。
 
-当前仍未定义网络协议、持久化 Schema、测试执行工具、真实 LLM Provider 或生产安全执行环境。Registry 的 Python handler 是 Phase 1–4 受控本地工具的内部契约；Phase 5 后执行职责按 ADR 007 迁移到 Go Tool Gateway。
+Phase 1.7 在 `services/agent_runtime/app/tools/run_test.py` 增加受控仓库测试执行：
+
+- `RunTestTool` 在构造时接收 `test_name → argv` 映射；模型调用只允许 Schema `enum` 中的 `test_name`，不能提交命令字符串或追加参数。可执行文件在构造时解析为固定绝对路径，运行时采用参数列表与 `shell=False`。
+- 子进程 cwd 固定为规范化 Repository 根目录，stdin 关闭，只继承 PATH、系统目录、临时目录和 locale 等最小环境变量；Token、代理、用户 Profile 和任意业务环境变量不会默认传入。该过渡工具仍只适用于内容已检查的测试 Repository，不能提供 Sandbox 级隔离。
+- stdout 与 stderr 分别由 reader 持续排空，内存只保留配置上限内的前缀，避免 pipe 写满阻塞测试；最终 Observation 是有界且始终可解析的 JSON，包含 `test_name`、固定命令、exit code、timeout、stdout / stderr 及各自截断标记。
+- exit code 为 0 才返回成功；非零退出和 timeout 返回保留执行证据的失败 `ToolResult`。POSIX timeout 终止新进程组；Windows 使用固定系统 `taskkill /T` best-effort 清理进程树并以直接终止兜底。可靠取消与完整的进程、CPU / Memory / Network 和文件系统隔离留给 Phase 5 Go Tool Gateway + Docker Sandbox。
+
+当前仍未定义网络协议、持久化 Schema、真实 LLM Provider 或生产安全执行环境。Registry 的 Python handler 是 Phase 1–4 受控本地工具的内部契约；Phase 5 后执行职责按 ADR 007 迁移到 Go Tool Gateway。
 
 ## 3. High Level Architecture — 长期目标
 

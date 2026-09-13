@@ -11,6 +11,7 @@ from .registry import (
     UnknownToolError,
 )
 from .apply_patch import ApplyPatchTool, build_apply_patch_tool
+from .run_test import RunTestTool, TestExecutionError, build_run_test_tool
 from .search_code import SearchCodeTool, build_search_code_tool
 from .safe_read import (
     RepositoryAccessError,
@@ -24,14 +25,17 @@ __all__ = [
     "DuplicateToolError",
     "RepositoryAccessError",
     "RepositoryBoundary",
+    "RunTestTool",
     "SafeReadTools",
     "SearchCodeTool",
+    "TestExecutionError",
     "Tool",
     "ToolHandler",
     "ToolRegistry",
     "ToolRegistryError",
     "UnknownToolError",
     "build_apply_patch_tool",
+    "build_run_test_tool",
     "build_search_code_tool",
     "build_safe_read_tools",
 ]
