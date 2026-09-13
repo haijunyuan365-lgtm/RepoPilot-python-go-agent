@@ -6,12 +6,13 @@ import math
 from collections.abc import Callable, Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.agent.models import ToolCall, ToolResult
+if TYPE_CHECKING:
+    from app.agent.models import ToolCall, ToolResult
 
 
-ToolHandler = Callable[[ToolCall], ToolResult]
+ToolHandler = Callable[["ToolCall"], "ToolResult"]
 
 
 class ToolRegistryError(Exception):

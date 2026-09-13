@@ -4,7 +4,7 @@
 
 遵循 **Read → Understand → Identify reusable idea → Redesign for RepoPilot → Migrate minimal required code → Add tests**。
 
-Day 1 仅完成设计阅读、参考源码检查、候选映射和重设计约束。**没有复制、迁移或运行参考项目代码，也没有修改参考项目。所有候选实现均 NOT IMPLEMENTED。** `Candidate` 不表示代码已移入 RepoPilot，`Not migrating` 也不表示删除参考项目文件。
+Day 1 仅完成设计阅读、参考源码检查、候选映射和重设计约束，当时没有复制、迁移或运行参考项目代码，也没有修改参考项目。后续 Phase 1 的实际采用记录在 M-001 及之后条目中；当前仍没有复制参考源码。`Candidate` 不表示代码已移入 RepoPilot，`Pattern adopted` 只表示通用思想已被独立重设计，`Not migrating` 也不表示删除参考项目文件。
 
 范围由 [roadmap](roadmap.md) 决定，跨语言职责由 [architecture](architecture.md) 和 ADR 002 / 003 约束。目标路径是未来位置，不要求今天创建模块或接口。以后每迁移一个重要模块，都追加实际迁移记录、版本和测试证据，不覆盖候选阶段历史。
 
@@ -25,7 +25,7 @@ Day 1 仅完成设计阅读、参考源码检查、候选映射和重设计约�
 
 | ID / Source | Target（未来） | What was reused / Potential reuse | What was redesigned / Why | Phase / Status |
 | --- | --- | --- | --- | --- |
-| H-01 `waku/loop/agent.py` | `services/agent_runtime/app/agent/loop.py` | Agent Loop、max_iterations、Tool Calling、Observer、Streaming ideas | 用显式 AgentState / AgentResult 和结构化 ToolResult；区分自然停止、成功、迭代耗尽和错误；逐步加取消、版本化事件。保留透明循环，移除个人助手/单一 Provider 数据结构耦合；Streaming 不提前带入 Phase 1 | max_iterations / 终态思想已在 Step 1.1 重设计采用；Loop 仍为 Phase 1.3 Candidate |
+| H-01 `waku/loop/agent.py` | `services/agent_runtime/app/agent/loop.py` | Agent Loop、max_iterations、Tool Calling、Observation 回填的通用思想 | Step 1.3 已用显式 AgentState / AgentResult、Provider 无关 ChatModel Protocol 和结构化 ToolResult 独立实现；区分自然成功、模型/协议失败、迭代耗尽和可反馈的工具失败。未复制 Anthropic 类型、streaming、observer 或字符串耗尽回复 | Step 1.3 Pattern adopted；streaming / events / Provider 均 Planned |
 | H-02 `waku/tools/registry.py` | `services/agent_runtime/app/tools/registry.py` | Tool Schema、Registry concept、稳定注册顺序 | Step 1.2 已实现结构化结果方向的 handler 契约、Schema 传输边界及重复/未知工具显式错误；未复制“异常转字符串”和静默覆盖行为。风险/超时/审批/幂等/Trace 及 Phase 5 Go 执行仍为 Planned | Step 1.2 Pattern adopted；Gateway Phase 5 Planned |
 | H-03 `waku/memory/retrieval_gate.py` | `services/agent_runtime/app/memory/retrieval_gate.py`（future RepoPilot retrieval gate） | 先判定是否检索及检索 Query，减少无关上下文 | 改为研发 Code / Memory 决策，增加 Scope、预算、错误回退评测；原实现 fail-open 不能绕过授权边界 | Phase 7；Candidate |
 | H-04 `waku/memory/consolidation.py` | `services/agent_runtime/app/memory/consolidation.py`（future async memory consolidation） | 按积累量提炼 facts / episodes，失败保留输入待重试 | 从同步 SQLite chat log 改为 RabbitMQ 后台处理、PostgreSQL、来源与 Scope、去重和恢复；主任务不等待蒸馏 | Phase 7；Candidate |
@@ -81,12 +81,12 @@ Calendar、Personal Notes、Personal Messages、Telegram、Voice、Personal Assi
 - **What was reused**：max_iterations 是显式循环预算、Tool Call 需要稳定 ID、工具结果应作为下一轮 Observation、循环必须有清楚终态的设计思想。
 - **What was redesigned**：没有复制 Hermes 源码。原 `LoopResult(reply, tool_calls, iterations)` 被拆分为 Provider 无关的 Message / ToolCall / ToolResult / AgentState / AgentResult；迭代耗尽不再伪装成普通 reply；AgentState 同时校验 call ID、工具名、唯一性和一次完成语义；工具参数限制为 JSON-compatible 数据。
 - **Why**：Step 1.2 Registry、Step 1.3 Loop 和后续 Provider Adapter 需要先共享一个稳定、可测试的内部协议，同时不能继承 Anthropic SDK 内容块或字符串错误约定。
-- **License considerations**：Hermes 根许可证为 MIT，但本 Step 只采用通用设计思想，没有复制代码行或依赖；RepoPilot 当前未选择发布许可证。若 Phase 1.3 迁移具体 Loop 代码，需重新核对来源并按 MIT 保留要求处理。
+- **License considerations**：Hermes 根许可证为 MIT，但本 Step 只采用通用设计思想，没有复制代码行或依赖；RepoPilot 当前未选择发布许可证。Step 1.3 同样只采用通用 Loop 思想并独立重设计，没有触发具体源码复制的 attribution 要求；详见 M-003。
 - **Design decisions**：符合 ADR 002 / 003；没有新增 ADR 或外部依赖。
 - **Tests**：`python -B -m unittest discover -s tests -v`，17 tests，PASS（在 `services/agent_runtime/` 执行）。
 - **Evidence**：核心实现、测试和 `docs/learning/phase-01/step-1.1-core-runtime-data-models.md`。
-- **Status**：Pattern adopted / Step 1.1 completed；Hermes Loop 本身仍未迁移。
-- **Remaining limitations / Follow-up**：Step 1.2 已补充 Registry；仍无 Loop、Provider、工具执行、网络协议或持久化。
+- **Status**：Pattern adopted / Step 1.1 completed；RepoPilot 最小 Loop 已在 Step 1.3 独立实现，Hermes Loop 源码本身仍未迁移。
+- **Remaining limitations / Follow-up**：Steps 1.2–1.3 已补充 Registry 与最小 Loop；仍无真实 Provider、真实仓库工具、安全执行、网络协议或持久化。
 
 ## 6. Actual Migration Record — M-002 / 2026-09-11
 
@@ -101,10 +101,26 @@ Calendar、Personal Notes、Personal Messages、Telegram、Voice、Personal Assi
 - **Design decisions**：符合 ADR 002 / 003 / 007；没有新增 ADR、外部依赖或执行基础设施。
 - **Tests**：`python -B -m unittest discover -s tests -v`，23 tests，PASS（在 `services/agent_runtime/` 执行），其中 6 个为 Step 1.2 Registry 测试。
 - **Evidence**：核心实现、边界测试和 `docs/learning/phase-01/step-1.2-tool-registry-contract.md`。
-- **Status**：Pattern adopted / Step 1.2 implemented；等待用户验收。
-- **Remaining limitations / Follow-up**：无完整 JSON Schema 参数语义校验、Registry 执行包装、Agent Loop、真实工具、Provider、风险/超时/审批策略或 Go Tool Gateway。
+- **Status**：Pattern adopted / Step 1.2 completed。
+- **Remaining limitations / Follow-up**：无完整 JSON Schema 参数语义校验、真实工具、Provider、风险/超时/审批策略或 Go Tool Gateway；Step 1.3 已增加最小 handler 执行包装。
 
-## 7. 迁移状态与完成标准
+## 7. Actual Migration Record — M-003 / 2026-09-11
+
+- **Module**：Phase 1.3 Minimal Agent Loop。
+- **Source**：Hermes `waku/loop/agent.py`，本次重新只读核对的本地源文件 SHA-256 为 `C744964BFBBB2D0471EC22F9A3632C8AD943EAF4654DC1D08AA0E9B0E64F9FBA`。
+- **Target**：`services/agent_runtime/app/agent/loop.py`、`app/agent/__init__.py`、`app/tools/registry.py` 和 `tests/test_agent_loop.py`。
+- **Current Phase / Authorized scope**：Phase 1 / Step 1.3，仅使用 fake ChatModel + fake Tool 验证同步最小循环，不访问文件系统、不接真实 Provider。
+- **What was reused**：Reason → Tool Call → Observation → 下一轮，以及自然结束和 max_iterations 防止无限循环的通用设计思想。
+- **What was redesigned**：没有复制 Hermes 源码。Loop 只依赖内部 `Message` 与 `ChatModel` Protocol，不导入 Anthropic；使用已有 `AgentState` 维护关联和迭代、`AgentResult` 区分三种终态；通过 `ToolRegistry` 顺序执行多个调用；Registry 对模型类型改用仅类型检查时导入以保持公共包可独立加载；未知工具、handler 异常和非法返回形成带原 `tool_call_id` / `tool_name` 的失败 Observation，而不是混成普通字符串；本 Step 不提前加入 streaming、observer、Provider 参数或真实工具。
+- **Why**：Step 1.3 需要验证最小推理—行动—观察控制流，并为后续安全读工具与 Provider Adapter 提供稳定边界；显式状态和结构化结果使失败可测试且不会被自然语言掩盖。
+- **License considerations**：Hermes 根许可证为 MIT；本 Step 仅采用通用循环思想，没有复制源代码行、Anthropic SDK 绑定或依赖，因此未加入第三方代码声明。参考项目保持只读且 hash 与 Day 1 记录一致。
+- **Design decisions**：符合 ADR 002 / 003 / 007；没有新增 ADR、外部依赖、跨语言边界或执行基础设施。
+- **Tests**：`python -B -m unittest tests.test_agent_loop -v`，8 tests，PASS；`python -B -m unittest discover -s tests -v`，31 tests，PASS（均在 `services/agent_runtime/` 执行）。覆盖单/多 Tool Call、Observation 回填、失败 ToolResult、未知 Tool、handler 异常/非法返回、自然结束、模型协议失败、未解析初始状态和 max_iterations。
+- **Evidence**：核心实现、测试、Diff Review 和 `docs/learning/phase-01/step-1.3-minimal-agent-loop.md`。
+- **Status**：Pattern adopted / Step 1.3 implemented and locally verified；等待用户验收。
+- **Remaining limitations / Follow-up**：无真实 Provider、async/streaming、事件 observer、重试、超时、取消、恢复执行、Schema 语义校验或真实仓库工具。
+
+## 8. 迁移状态与完成标准
 
 - **Candidate / Pattern only**：已识别思想，尚未复制或实现。
 - **Planned**：已明确进入 Current Phase 的下一项有限迁移，仍未完成。
@@ -114,7 +130,7 @@ Calendar、Personal Notes、Personal Messages、Telegram、Voice、Personal Assi
 
 实际迁移时检查 Source commit/hash、dirty diff、License、上游声明及依赖。保留需要的版权/许可到合适的源文件声明或 attribution 文件，并记录路径；今天未复制代码，因此不添加虚构的第三方代码归属或擅自选择 RepoPilot 开源许可证。
 
-## 7. 每个实际迁移追加使用的模板
+## 9. 每个实际迁移追加使用的模板
 
 ```text
 Migration ID / Date:
