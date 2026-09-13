@@ -1,5 +1,7 @@
 """Tool contracts for the RepoPilot agent runtime."""
 
+# Registry 是其他 Tool 模块的底层契约，必须先完成初始化，避免
+# app.agent.loop 反向导入 app.tools 时出现循环导入的半初始化状态。
 from .registry import (
     DuplicateToolError,
     Tool,
@@ -8,6 +10,7 @@ from .registry import (
     ToolRegistryError,
     UnknownToolError,
 )
+from .apply_patch import ApplyPatchTool, build_apply_patch_tool
 from .search_code import SearchCodeTool, build_search_code_tool
 from .safe_read import (
     RepositoryAccessError,
@@ -17,6 +20,7 @@ from .safe_read import (
 )
 
 __all__ = [
+    "ApplyPatchTool",
     "DuplicateToolError",
     "RepositoryAccessError",
     "RepositoryBoundary",
@@ -27,6 +31,7 @@ __all__ = [
     "ToolRegistry",
     "ToolRegistryError",
     "UnknownToolError",
+    "build_apply_patch_tool",
     "build_search_code_tool",
     "build_safe_read_tools",
 ]

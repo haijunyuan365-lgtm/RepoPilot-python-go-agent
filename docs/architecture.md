@@ -6,7 +6,7 @@ RepoPilot 面向软件研发任务：用户绑定 Git Repository，通过自然�
 
 长期交付物是可提交的代码结果及其测试、Diff、执行记录、审批和评测证据。平台必须支持持久化、实时展示、取消、超时、追踪、评测和审计。
 
-**当前实际交付为治理基线，以及 Phase 1.1–1.5 的核心数据模型、Tool Registry、最小 Agent Loop、安全读取和精确文本检索工具。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，完整 Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的其余服务、状态机、数据层和图表描述确认的是长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
+**当前实际交付为治理基线，以及 Phase 1.1–1.6 的核心数据模型、Tool Registry、最小 Agent Loop、安全读取、精确文本检索和受控单文件补丁工具。** `Current Phase: Phase 1` 的权威定义在 [roadmap](roadmap.md)，完整 Python Coding Agent MVP 尚未实现（NOT IMPLEMENTED）。本文件中的其余服务、状态机、数据层和图表描述确认的是长期方向，不能当作已运行系统。实施时间由 roadmap 控制；[ADR](decisions.md) 的 Accepted 也不代表实现完成。
 
 设计输入是 [完整长期设计](../references/RepoPilot_full_design.md) 和 Day 1 Prompt。原设计中的原地 Hermes 改造、更宽泛 MVP、提前 Memory/Reviewer/Embedding、示例表结构、API 和阈值均不自动进入当前范围。实际开发规则见 [AGENTS.md](../AGENTS.md)。
 
@@ -30,7 +30,7 @@ Go = Control Plane；Python = Agent Runtime。Go 负责 Task Orchestration / Ser
 
 Go 的 Handler/API 负责传输，Application 协调用例，Domain 表达规则，Infrastructure 提供存储、MQ、工具执行等适配；小接口按真实需求引入。Python 用显式状态和结构化结果保持循环可理解，Provider、工具客户端、检索与评测不应把主循环包成不透明框架。
 
-### Phase 1.1–1.5 当前实现
+### Phase 1.1–1.6 当前实现
 
 当前 Python Runtime 已建立 Provider 无关的核心数据模型，位于 `services/agent_runtime/app/agent/models.py`：
 
@@ -70,7 +70,15 @@ Phase 1.5 在 `services/agent_runtime/app/tools/search_code.py` 增加受控仓�
 - 输出是确定性 JSON 数组，每个命中行包含 POSIX 风格仓库相对 `path`、从 1 开始的 `line` / `column` 和该行 `text`；无命中是成功的空数组，而不是错误。
 - 候选文件、遍历目录项、单文件字符、命中数和最终 JSON 字符均有独立上限；任何安全截断都通过关联原调用的 `ToolResult.truncated` 表达，输出始终保持为完整可解析的 JSON。
 
-当前仍未定义网络协议、持久化 Schema、写入 / 测试工具、真实 LLM Provider 或生产安全执行环境。Registry 的 Python handler 是 Phase 1–4 受控本地工具的内部契约；Phase 5 后执行职责按 ADR 007 迁移到 Go Tool Gateway。
+Phase 1.6 在 `services/agent_runtime/app/tools/apply_patch.py` 增加受控仓库单文件写入：
+
+- `apply_patch` 接收必填 `patch`，格式限定为以 `--- a/<path>`、`+++ b/<path>` 开头的单文件 unified diff；支持同一文件的多个有序 hunk 和 `No newline at end of file`，暂不支持新增、删除、重命名或多文件 Patch。
+- 目标必须是既有 UTF-8 普通文本文件。工具复用 `RepositoryBoundary` 拒绝绝对路径、父目录穿越、仓库外真实路径和受保护文件，并额外拒绝通过 symlink / Windows Junction 别名写入。
+- parser 严格核对 hunk 新旧范围和正文计数；应用阶段核对行内容、换行存在性、hunk 顺序和新范围偏移。全部 hunk 先在内存完成，任何格式错误或上下文冲突都返回失败 `ToolResult`，目标文件保持原样。
+- 写入使用目标目录内的临时 UTF-8 文件，刷新后保留原权限位并以 `os.replace` 原子替换；成功 Observation 是根据写入前后真实内容重新生成的 unified diff，而不是直接回显模型输入。
+- Patch、目标文件和 Diff 输出均有字符上限；过大的输入或文件拒绝写入，成功但输出超过上限时返回前缀并设置 `ToolResult.truncated=True`。CRLF 文件沿用原换行风格，无末尾换行语义被保留。
+
+当前仍未定义网络协议、持久化 Schema、测试执行工具、真实 LLM Provider 或生产安全执行环境。Registry 的 Python handler 是 Phase 1–4 受控本地工具的内部契约；Phase 5 后执行职责按 ADR 007 迁移到 Go Tool Gateway。
 
 ## 3. High Level Architecture — 长期目标
 
